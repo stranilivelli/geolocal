@@ -16,6 +16,8 @@ COPY . .
 
 RUN composer install --no-dev --optimize-autoloader --no-scripts
 
+RUN php artisan filament:upgrade
+
 EXPOSE 8080
 
 CMD sh -c "php artisan config:cache && php artisan route:cache && php artisan migrate --force && php -S 0.0.0.0:$PORT -t public"

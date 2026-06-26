@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php artisan *)",
+      "Bash(php -r \"require 'vendor/autoload.php'; new App\\\\Filament\\\\Resources\\\\LocationResource\\(\\);\")",
+      "Bash(php -l /Users/salvatorepaone/Herd/reciproca/app/Filament/Resources/LocationResource.php)",
+      "Bash(php -l /Users/salvatorepaone/Herd/reciproca/app/Models/Location.php)",
+      "Bash(curl -s \"http://reciproca.test/api/v1/locations?per_page=500\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(f'total={d[\\\\\"total\\\\\"]}, items={len\\(d[\\\\\"data\\\\\"]\\)}, first={d[\\\\\"data\\\\\"][0][\\\\\"name\\\\\"]}'\\)\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://reciproca.test/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://reciproca.test/struttura/aesthetic-medical-care)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://reciproca.test/struttura/studio-dr-massai-adriano-26)"
+    ]
+  }
+}

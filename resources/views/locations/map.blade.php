@@ -862,6 +862,9 @@ function mapApp() {
         filters: { search: '', province: '', category_id: '', directOnly: false },
 
         async init() {
+            // Riferimento stabile: la callback di Google e Alpine devono agire
+            // sullo stesso oggetto, altrimenti i guard su `this` non combaciano.
+            window.__mapApp = this;
             await Promise.all([this.loadCategories(), this.loadProvinces(), this.loadLocations()]);
         },
 
@@ -942,9 +945,9 @@ function mapApp() {
             // Chiamata sia dalla callback di Google sia al termine del caricamento
             // dati: deve eseguire una sola volta e solo quando entrambi sono pronti,
             // altrimenti si creano due mappe/clusterer (uno resta orfano coi filtri).
-            if (this.mapInitialized) return;
-            if (!window.google?.maps) return;
-            if (this.loading) return;
+            if (this.map) return;              // mappa già costruita
+            if (!window.google?.maps) return;  // Google Maps non ancora pronto
+            if (this.loading) return;          // dati non ancora caricati
             this.mapInitialized = true;
             this.googleMapsLoaded = true;
             this.map = new google.maps.Map(document.getElementById('google-map'), {
@@ -1004,13 +1007,17 @@ function mapApp() {
 
             const filterActive = this.hasActiveFilters() || !!this.filters.search.trim();
 
-            // Reset pulito: tolgo i marker sia dal clusterer sia dalla mappa
+            // Reset pulito: tolgo i marker dal clusterer, dalla mappa e ogni animazione
             if (this.clusterer) this.clusterer.clearMarkers();
-            Object.values(this.markers).forEach(m => m.setMap(null));
+            Object.values(this.markers).forEach(m => { m.setMap(null); m.setAnimation(null); });
 
             if (filterActive) {
                 // Filtro attivo: niente clustering → marker singoli e cliccabili
                 visibleMarkers.forEach(m => m.setMap(this.map));
+                // Un solo risultato: lo faccio "saltellare" così è impossibile perderlo
+                if (visibleMarkers.length === 1) {
+                    visibleMarkers[0].setAnimation(google.maps.Animation.BOUNCE);
+                }
             } else if (this.clusterer) {
                 // Vista completa: clustering per non intasare la mappa
                 this.clusterer.addMarkers(visibleMarkers);
@@ -1070,13 +1077,17 @@ function mapApp() {
         },
 
         markerIcon(selected, featured) {
+            // Pin a goccia (punta in basso sul punto esatto): molto più visibile
+            // del cerchietto, anche quando la struttura è una sola.
             return {
-                path: google.maps.SymbolPath.CIRCLE,
+                path: 'M 0 0 C -6 -13 -13 -17 -13 -26 A 13 13 0 1 1 13 -26 C 13 -17 6 -13 0 0 z',
                 fillColor: selected ? '#1a4d2e' : (featured ? '#6b3e00' : '#2f5c3d'),
                 fillOpacity: 1,
-                strokeColor: '#fff',
+                strokeColor: '#ffffff',
                 strokeWeight: selected ? 3 : 2,
-                scale: selected ? 12 : 8,
+                scale: selected ? 1.5 : 1.15,
+                anchor: new google.maps.Point(0, 0),
+                labelOrigin: new google.maps.Point(0, -26),
             };
         },
 
@@ -1101,12 +1112,10 @@ function mapApp() {
 }
 
 function initGoogleMap() {
-    document.querySelectorAll('[x-data]').forEach(el => {
-        if (el._x_dataStack) {
-            const d = el._x_dataStack[0];
-            if (d && typeof d.initMap === 'function') d.initMap();
-        }
-    });
+    // Un solo componente, un solo riferimento: niente doppia inizializzazione.
+    if (window.__mapApp && typeof window.__mapApp.initMap === 'function') {
+        window.__mapApp.initMap();
+    }
 }
 </script>
 <script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>

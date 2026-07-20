@@ -850,6 +850,7 @@ function mapApp() {
         provinces: [],
         loading: true,
         googleMapsLoaded: false,
+        mapInitialized: false,
         selectedId: null,
         selectedLocation: null,
         mobileView: 'map',
@@ -938,7 +939,13 @@ function mapApp() {
         },
 
         initMap() {
+            // Chiamata sia dalla callback di Google sia al termine del caricamento
+            // dati: deve eseguire una sola volta e solo quando entrambi sono pronti,
+            // altrimenti si creano due mappe/clusterer (uno resta orfano coi filtri).
+            if (this.mapInitialized) return;
             if (!window.google?.maps) return;
+            if (this.loading) return;
+            this.mapInitialized = true;
             this.googleMapsLoaded = true;
             this.map = new google.maps.Map(document.getElementById('google-map'), {
                 center: { lat: 43.77, lng: 11.25 },
@@ -1008,10 +1015,12 @@ function mapApp() {
             if (!this.map || !markers.length) return;
             const bounds = new google.maps.LatLngBounds();
             markers.forEach(m => bounds.extend(m.getPosition()));
-            this.map.fitBounds(bounds, 60); // 60px di padding
-            // Evita lo zoom eccessivo quando resta pochissimi risultati
+            // maxZoom temporaneo: fitBounds lo rispetta e non c'è un secondo
+            // "salto" di zoom → transizione più morbida. Poi lo ripristino.
+            this.map.setOptions({ maxZoom: 14 });
+            this.map.fitBounds(bounds, 60);
             google.maps.event.addListenerOnce(this.map, 'idle', () => {
-                if (this.map.getZoom() > 15) this.map.setZoom(15);
+                this.map.setOptions({ maxZoom: null });
             });
         },
 

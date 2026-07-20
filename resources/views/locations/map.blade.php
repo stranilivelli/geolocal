@@ -1040,24 +1040,25 @@ function mapApp() {
                 this.clusterer = new markerClusterer.MarkerClusterer({
                     map: this.map,
                     markers: arr,
-                    // Clic sul cluster: inquadra i suoi marker così si "esplode".
-                    // Calcolo i bounds dai marker del cluster (cluster.bounds non è
-                    // affidabile in tutte le versioni della libreria → il default a
-                    // volte non zoomava affatto).
+                    // Clic sul cluster: inquadra i suoi marker e garantisce sempre un
+                    // avvicinamento reale, così il cluster si "apre" davvero e non
+                    // resta bloccato (se il fitBounds lascia i marker ancora entro il
+                    // raggio di clustering, forzo comunque un salto di zoom).
                     onClusterClick: (event, cluster, map) => {
+                        const startZoom = map.getZoom() || 8;
                         const markers = cluster.markers || [];
-                        if (markers.length) {
-                            const b = new google.maps.LatLngBounds();
-                            markers.forEach(m => b.extend(m.getPosition ? m.getPosition() : m.position));
-                            map.fitBounds(b, 40);
-                            // Se i marker sono quasi sullo stesso punto, limito lo zoom
-                            google.maps.event.addListenerOnce(map, 'idle', () => {
-                                if (map.getZoom() > 16) map.setZoom(16);
-                            });
+                        const b = new google.maps.LatLngBounds();
+                        markers.forEach(m => b.extend(m.getPosition ? m.getPosition() : m.position));
+                        if (!b.isEmpty()) {
+                            map.fitBounds(b, 48);
                         } else if (cluster.position) {
                             map.panTo(cluster.position);
-                            map.setZoom(Math.min((map.getZoom() || 8) + 3, 16));
                         }
+                        google.maps.event.addListenerOnce(map, 'idle', () => {
+                            // almeno +3 livelli rispetto a dove eravamo, mai oltre 18
+                            const z = Math.min(Math.max(map.getZoom(), startZoom + 3), 18);
+                            if (z !== map.getZoom()) map.setZoom(z);
+                        });
                     },
                 });
             } else {

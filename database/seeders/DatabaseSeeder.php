@@ -28,5 +28,8 @@ class DatabaseSeeder extends Seeder
                 'email_verified_at' => now(),
             ]
         );
+
+        // Importa categorie e strutture dal dump Joomla
+        $this->call(JoomlaImportSeeder::class);
     }
 }

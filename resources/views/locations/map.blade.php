@@ -996,28 +996,39 @@ function mapApp() {
         },
 
         updateMarkerVisibility() {
-            const visible = new Set(this.filteredLocations.map(l => l.id));
+            const visibleIds = new Set(this.filteredLocations.map(l => l.id));
             const visibleMarkers = [];
             Object.entries(this.markers).forEach(([id, m]) => {
-                const show = visible.has(parseInt(id));
-                m.setVisible(show);
-                if (show) visibleMarkers.push(m);
+                if (visibleIds.has(parseInt(id))) visibleMarkers.push(m);
             });
-            // Il clusterer ignora setVisible: va ricostruito con i soli marker filtrati
-            if (this.clusterer) {
-                this.clusterer.clearMarkers();
+
+            const filterActive = this.hasActiveFilters() || !!this.filters.search.trim();
+
+            // Reset pulito: tolgo i marker sia dal clusterer sia dalla mappa
+            if (this.clusterer) this.clusterer.clearMarkers();
+            Object.values(this.markers).forEach(m => m.setMap(null));
+
+            if (filterActive) {
+                // Filtro attivo: niente clustering → marker singoli e cliccabili
+                visibleMarkers.forEach(m => m.setMap(this.map));
+            } else if (this.clusterer) {
+                // Vista completa: clustering per non intasare la mappa
                 this.clusterer.addMarkers(visibleMarkers);
+            } else {
+                visibleMarkers.forEach(m => m.setMap(this.map));
             }
-            this.fitToMarkers(visibleMarkers);
+
+            this.fitToMarkers(visibleMarkers, filterActive);
         },
 
-        fitToMarkers(markers) {
+        fitToMarkers(markers, filterActive = false) {
             if (!this.map || !markers.length) return;
             const bounds = new google.maps.LatLngBounds();
             markers.forEach(m => bounds.extend(m.getPosition()));
-            // maxZoom temporaneo: fitBounds lo rispetta e non c'è un secondo
-            // "salto" di zoom → transizione più morbida. Poi lo ripristino.
-            this.map.setOptions({ maxZoom: 14 });
+            // Con filtro attivo lascio avvicinare di più (fino a livello via) così
+            // i marker si "esplodono" e restano cliccabili; in vista piena resto largo.
+            // maxZoom temporaneo su fitBounds: una sola transizione, niente doppio salto.
+            this.map.setOptions({ maxZoom: filterActive ? 16 : 13 });
             this.map.fitBounds(bounds, 60);
             google.maps.event.addListenerOnce(this.map, 'idle', () => {
                 this.map.setOptions({ maxZoom: null });

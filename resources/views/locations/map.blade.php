@@ -856,6 +856,7 @@ function mapApp() {
         showFilterDrawer: false,
         map: null,
         markers: {},
+        clusterer: null,
         infoWindow: null,
         filters: { search: '', province: '', category_id: '', directOnly: false },
 
@@ -975,7 +976,7 @@ function mapApp() {
             });
 
             if (window.markerClusterer) {
-                new markerClusterer.MarkerClusterer({ map: this.map, markers: arr });
+                this.clusterer = new markerClusterer.MarkerClusterer({ map: this.map, markers: arr });
             } else {
                 arr.forEach(m => m.setMap(this.map));
             }
@@ -989,7 +990,17 @@ function mapApp() {
 
         updateMarkerVisibility() {
             const visible = new Set(this.filteredLocations.map(l => l.id));
-            Object.entries(this.markers).forEach(([id, m]) => m.setVisible(visible.has(parseInt(id))));
+            const visibleMarkers = [];
+            Object.entries(this.markers).forEach(([id, m]) => {
+                const show = visible.has(parseInt(id));
+                m.setVisible(show);
+                if (show) visibleMarkers.push(m);
+            });
+            // Il clusterer ignora setVisible: va ricostruito con i soli marker filtrati
+            if (this.clusterer) {
+                this.clusterer.clearMarkers();
+                this.clusterer.addMarkers(visibleMarkers);
+            }
         },
 
         updateMarkerIcons() {

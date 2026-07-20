@@ -1080,22 +1080,22 @@ function mapApp() {
 
             const filterActive = this.hasActiveFilters() || !!this.filters.search.trim();
 
-            // Reset pulito: tolgo i marker dal clusterer, dalla mappa e ogni animazione
-            if (this.clusterer) this.clusterer.clearMarkers();
-            Object.values(this.markers).forEach(m => { m.setMap(null); m.setAnimation(null); });
-
-            if (filterActive) {
-                // Filtro attivo: niente clustering → marker singoli e cliccabili
-                visibleMarkers.forEach(m => m.setMap(this.map));
-                // Un solo risultato: lo faccio "saltellare" così è impossibile perderlo
-                if (visibleMarkers.length === 1) {
-                    visibleMarkers[0].setAnimation(google.maps.Animation.BOUNCE);
-                }
-            } else if (this.clusterer) {
-                // Vista completa: clustering per non intasare la mappa
+            // I marker restano SEMPRE gestiti dal clusterer: così lo zoom
+            // ri-clusterizza in modo dinamico (unione/separazione) e i cluster
+            // restano cliccabili. Il filtro cambia solo quali marker sono visibili
+            // e l'inquadratura; l'auto-zoom porta i risultati a livello marker.
+            Object.values(this.markers).forEach(m => m.setAnimation(null));
+            if (this.clusterer) {
+                this.clusterer.clearMarkers();
                 this.clusterer.addMarkers(visibleMarkers);
             } else {
+                Object.values(this.markers).forEach(m => m.setMap(null));
                 visibleMarkers.forEach(m => m.setMap(this.map));
+            }
+
+            // Un solo risultato filtrato: lo faccio "saltellare" per individuarlo subito
+            if (filterActive && visibleMarkers.length === 1) {
+                visibleMarkers[0].setAnimation(google.maps.Animation.BOUNCE);
             }
 
             this.fitToMarkers(visibleMarkers, filterActive);

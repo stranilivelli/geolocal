@@ -597,7 +597,7 @@ body { overflow: hidden; }
             <input
                 type="search"
                 class="search-input"
-                placeholder="Cerca struttura o città…"
+                placeholder="Cerca struttura…"
                 x-model.debounce.350ms="filters.search"
                 @input="applyFilters()"
                 aria-label="Cerca struttura o città"
@@ -632,7 +632,7 @@ body { overflow: hidden; }
                     <input
                         type="search"
                         class="search-input"
-                        placeholder="Nome o città…"
+                        placeholder="Nome struttura…"
                         x-model.debounce.350ms="filters.search"
                         @input="applyFilters()"
                         aria-label="Cerca struttura o città"
@@ -904,9 +904,7 @@ function mapApp() {
 
             let res = [...this.allLocations];
             const s = this.filters.search.toLowerCase().trim();
-            if (s) res = res.filter(l =>
-                l.name.toLowerCase().includes(s) || (l.city||'').toLowerCase().includes(s)
-            );
+            if (s) res = res.filter(l => l.name.toLowerCase().includes(s));
             if (this.filters.province) res = res.filter(l => l.province === this.filters.province);
             if (this.filters.category_id) {
                 const id = parseInt(this.filters.category_id);

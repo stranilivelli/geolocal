@@ -1001,6 +1001,18 @@ function mapApp() {
                 this.clusterer.clearMarkers();
                 this.clusterer.addMarkers(visibleMarkers);
             }
+            this.fitToMarkers(visibleMarkers);
+        },
+
+        fitToMarkers(markers) {
+            if (!this.map || !markers.length) return;
+            const bounds = new google.maps.LatLngBounds();
+            markers.forEach(m => bounds.extend(m.getPosition()));
+            this.map.fitBounds(bounds, 60); // 60px di padding
+            // Evita lo zoom eccessivo quando resta pochissimi risultati
+            google.maps.event.addListenerOnce(this.map, 'idle', () => {
+                if (this.map.getZoom() > 15) this.map.setZoom(15);
+            });
         },
 
         updateMarkerIcons() {

@@ -1037,7 +1037,29 @@ function mapApp() {
             });
 
             if (window.markerClusterer) {
-                this.clusterer = new markerClusterer.MarkerClusterer({ map: this.map, markers: arr });
+                this.clusterer = new markerClusterer.MarkerClusterer({
+                    map: this.map,
+                    markers: arr,
+                    // Clic sul cluster: inquadra i suoi marker così si "esplode".
+                    // Calcolo i bounds dai marker del cluster (cluster.bounds non è
+                    // affidabile in tutte le versioni della libreria → il default a
+                    // volte non zoomava affatto).
+                    onClusterClick: (event, cluster, map) => {
+                        const markers = cluster.markers || [];
+                        if (markers.length) {
+                            const b = new google.maps.LatLngBounds();
+                            markers.forEach(m => b.extend(m.getPosition ? m.getPosition() : m.position));
+                            map.fitBounds(b, 40);
+                            // Se i marker sono quasi sullo stesso punto, limito lo zoom
+                            google.maps.event.addListenerOnce(map, 'idle', () => {
+                                if (map.getZoom() > 16) map.setZoom(16);
+                            });
+                        } else if (cluster.position) {
+                            map.panTo(cluster.position);
+                            map.setZoom(Math.min((map.getZoom() || 8) + 3, 16));
+                        }
+                    },
+                });
             } else {
                 arr.forEach(m => m.setMap(this.map));
             }

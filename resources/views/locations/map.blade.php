@@ -551,6 +551,10 @@ body { overflow: hidden; }
 
     .tab-btn svg { width: 22px; height: 22px; }
 
+    /* Label + eventuale badge sulla stessa riga (evita che il conteggio
+       finisca su una terza riga e venga tagliato dalla tabbar) */
+    .tab-label { display: inline-flex; align-items: center; gap: .3rem; line-height: 1; }
+
     .tab-btn.is-active { color: var(--p); }
 
     .tab-btn.is-active svg { stroke: var(--p); }
@@ -819,7 +823,7 @@ body { overflow: hidden; }
             aria-label="Visualizza mappa"
         >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"/></svg>
-            Mappa
+            <span class="tab-label">Mappa</span>
         </button>
         <button
             class="tab-btn"
@@ -830,10 +834,12 @@ body { overflow: hidden; }
             aria-label="Visualizza lista"
         >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-            Lista
-            <template x-if="filteredLocations.length > 0">
-                <span class="tab-count" x-text="filteredLocations.length"></span>
-            </template>
+            <span class="tab-label">
+                Lista
+                <template x-if="filteredLocations.length > 0">
+                    <span class="tab-count" x-text="filteredLocations.length"></span>
+                </template>
+            </span>
         </button>
     </div>
 
@@ -1038,25 +1044,16 @@ function mapApp() {
                 this.clusterer = new markerClusterer.MarkerClusterer({
                     map: this.map,
                     markers: arr,
-                    // Clic sul cluster: inquadra i suoi marker e garantisce sempre un
-                    // avvicinamento reale, così il cluster si "apre" davvero e non
-                    // resta bloccato (se il fitBounds lascia i marker ancora entro il
-                    // raggio di clustering, forzo comunque un salto di zoom).
+                    // Clic sul cluster: DRILL-DOWN, non "inquadra tutto". Inquadrare
+                    // tutti i marker di un cluster sparso equivale alla vista di
+                    // partenza (sembra che non succeda nulla). Invece zoomo dentro,
+                    // centrando sul cluster: +3 livelli a ogni clic finché si esplode.
                     onClusterClick: (event, cluster, map) => {
-                        const startZoom = map.getZoom() || 8;
-                        const markers = cluster.markers || [];
-                        const b = new google.maps.LatLngBounds();
-                        markers.forEach(m => b.extend(m.getPosition ? m.getPosition() : m.position));
-                        if (!b.isEmpty()) {
-                            map.fitBounds(b, 48);
-                        } else if (cluster.position) {
-                            map.panTo(cluster.position);
-                        }
-                        google.maps.event.addListenerOnce(map, 'idle', () => {
-                            // almeno +3 livelli rispetto a dove eravamo, mai oltre 18
-                            const z = Math.min(Math.max(map.getZoom(), startZoom + 3), 18);
-                            if (z !== map.getZoom()) map.setZoom(z);
-                        });
+                        const ms = cluster.markers || [];
+                        const pos = cluster.position || cluster._position ||
+                            (ms[0] && (ms[0].getPosition ? ms[0].getPosition() : ms[0].position));
+                        if (pos) map.setCenter(pos);
+                        map.setZoom(Math.min((map.getZoom() || 8) + 3, 18));
                     },
                 });
             } else {

@@ -282,6 +282,15 @@ a:hover { text-decoration: underline; }
 .theme-btn:hover { background: var(--p-subtle); color: var(--p); border-color: var(--p); }
 .theme-btn svg { width: 17px; height: 17px; }
 
+/* Header su mobile: il link testuale affolla e spinge fuori il toggle tema.
+   Lascio solo logo (che porta all'elenco) + toggle. */
+@media (max-width: 767px) {
+    .site-header { padding: 0 1rem; gap: .5rem; }
+    .site-header .nav-link { display: none; }
+    .logo-text { font-size: .88rem; }
+    .logo-text small { font-size: .62rem; }
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    BADGE — sistema semantico colori
    ═══════════════════════════════════════════════════════════════════ */

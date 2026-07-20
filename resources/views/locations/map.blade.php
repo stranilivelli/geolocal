@@ -643,7 +643,7 @@ body { overflow: hidden; }
                 <p class="filter-label">Provincia</p>
                 <select class="filter-select" x-model="filters.province" @change="applyFilters()" aria-label="Filtra per provincia">
                     <option value="">Tutte le province</option>
-                    <template x-for="p in provinces" :key="p">
+                    <template x-for="p in availableProvinces" :key="p">
                         <option :value="p" x-text="p"></option>
                     </template>
                 </select>
@@ -652,8 +652,8 @@ body { overflow: hidden; }
                 <p class="filter-label">Specializzazione</p>
                 <select class="filter-select" x-model="filters.category_id" @change="applyFilters()" aria-label="Filtra per specializzazione">
                     <option value="">Tutte le specializzazioni</option>
-                    <template x-for="cat in categories" :key="cat.id">
-                        <option :value="cat.id" x-text="cat.name + ' (' + cat.locations_count + ')'"></option>
+                    <template x-for="cat in availableCategories" :key="cat.id">
+                        <option :value="cat.id" x-text="cat.name + ' (' + cat.count + ')'"></option>
                     </template>
                 </select>
             </div>
@@ -777,19 +777,19 @@ body { overflow: hidden; }
             <div class="drawer-filters">
                 <div class="filter-group">
                     <p class="filter-label">Provincia</p>
-                    <select class="filter-select" x-model="filters.province" aria-label="Filtra per provincia">
+                    <select class="filter-select" x-model="filters.province" @change="computeAvailableOptions()" aria-label="Filtra per provincia">
                         <option value="">Tutte le province</option>
-                        <template x-for="p in provinces" :key="p">
+                        <template x-for="p in availableProvinces" :key="p">
                             <option :value="p" x-text="p"></option>
                         </template>
                     </select>
                 </div>
                 <div class="filter-group">
                     <p class="filter-label">Specializzazione</p>
-                    <select class="filter-select" x-model="filters.category_id" aria-label="Filtra per specializzazione">
+                    <select class="filter-select" x-model="filters.category_id" @change="computeAvailableOptions()" aria-label="Filtra per specializzazione">
                         <option value="">Tutte le specializzazioni</option>
-                        <template x-for="cat in categories" :key="cat.id">
-                            <option :value="cat.id" x-text="cat.name + ' (' + cat.locations_count + ')'"></option>
+                        <template x-for="cat in availableCategories" :key="cat.id">
+                            <option :value="cat.id" x-text="cat.name + ' (' + cat.count + ')'"></option>
                         </template>
                     </select>
                 </div>
@@ -848,6 +848,8 @@ function mapApp() {
         filteredLocations: [],
         categories: [],
         provinces: [],
+        availableCategories: [],
+        availableProvinces: [],
         loading: true,
         googleMapsLoaded: false,
         mapInitialized: false,
@@ -866,6 +868,7 @@ function mapApp() {
             // sullo stesso oggetto, altrimenti i guard su `this` non combaciano.
             window.__mapApp = this;
             await Promise.all([this.loadCategories(), this.loadProvinces(), this.loadLocations()]);
+            this.computeAvailableOptions();
         },
 
         async loadLocations() {
@@ -895,6 +898,10 @@ function mapApp() {
         },
 
         applyFilters() {
+            // Filtri collegati: ricalcolo le opzioni disponibili in base agli altri
+            // filtri (può azzerare una selezione diventata impossibile), poi filtro.
+            this.computeAvailableOptions();
+
             let res = [...this.allLocations];
             const s = this.filters.search.toLowerCase().trim();
             if (s) res = res.filter(l =>
@@ -908,6 +915,47 @@ function mapApp() {
             if (this.filters.directOnly) res = res.filter(l => l.convention_type === 'diretta');
             this.filteredLocations = res;
             this.updateMarkerVisibility();
+        },
+
+        // Una location soddisfa i filtri "di contesto" (provincia/specializzazione/
+        // diretta), ignorandone uno per calcolare le opzioni ancora disponibili
+        // in quella tendina. La ricerca testuale non entra qui per non far
+        // sparire le opzioni mentre si digita.
+        matchesContext(l, ignore) {
+            const f = this.filters;
+            if (ignore !== 'province' && f.province && l.province !== f.province) return false;
+            if (ignore !== 'category' && f.category_id) {
+                const id = parseInt(f.category_id);
+                if (!(l.categories||[]).some(c => c.id === id)) return false;
+            }
+            if (f.directOnly && l.convention_type !== 'diretta') return false;
+            return true;
+        },
+
+        computeAvailableOptions() {
+            // Province disponibili date le altre scelte (specializzazione/diretta)
+            const provSet = new Set(
+                this.allLocations.filter(l => this.matchesContext(l, 'province'))
+                    .map(l => l.province).filter(Boolean)
+            );
+            this.availableProvinces = this.provinces.filter(p => provSet.has(p));
+            if (this.filters.province && !provSet.has(this.filters.province)) {
+                this.filters.province = '';
+            }
+
+            // Specializzazioni disponibili date le altre scelte (provincia/diretta),
+            // con conteggio contestuale delle strutture
+            const base = this.allLocations.filter(l => this.matchesContext(l, 'category'));
+            const counts = {};
+            base.forEach(l => (l.categories||[]).forEach(c => {
+                counts[c.id] = (counts[c.id] || 0) + 1;
+            }));
+            this.availableCategories = this.categories
+                .filter(c => counts[c.id])
+                .map(c => ({ id: c.id, name: c.name, count: counts[c.id] }));
+            if (this.filters.category_id && !counts[parseInt(this.filters.category_id)]) {
+                this.filters.category_id = '';
+            }
         },
 
         selectLocation(loc) {
@@ -973,7 +1021,10 @@ function mapApp() {
                     title: loc.name,
                     icon: this.markerIcon(false, loc.featured),
                 });
+                // Il rimbalzo (risultato singolo) si ferma appena l'utente interagisce
+                marker.addListener('mouseover', () => marker.setAnimation(null));
                 marker.addListener('click', () => {
+                    marker.setAnimation(null);
                     this.selectedId = loc.id;
                     this.selectedLocation = loc;
                     this.updateMarkerIcons();
